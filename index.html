@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>市場與總經儀表板</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--line:#262d36;--tx:#e6edf3;--mu:#8b949e;--ac:#58a6ff;--up:#3fb950;--dn:#f85149}
+@media (prefers-color-scheme:light){:root{--bg:#f6f8fa;--card:#fff;--line:#d0d7de;--tx:#1f2328;--mu:#656d76;--ac:#0969da}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;padding:12px;max-width:640px;margin:auto}
+h1{font-size:18px;margin:6px 0 2px}.sub{color:var(--mu);font-size:12px}
+.tabs{display:flex;gap:8px;margin:10px 0}.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--mu);border-radius:8px;font-size:14px}.tabs .on{color:var(--tx);border-color:var(--ac)}
+h2{font-size:12px;color:var(--mu);margin:14px 0 4px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{display:flex;justify-content:space-between;align-items:baseline;padding:11px 12px;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.row b{font-size:17px;font-variant-numeric:tabular-nums}.row small{display:block;font-size:11px;color:var(--mu);text-align:right}
+.up{color:var(--up)}.dn{color:var(--dn)}.na{color:var(--mu)}.hide{display:none}
+svg{width:100%;height:70px}.note{font-size:11px;color:var(--mu);margin-top:14px;line-height:1.6}
+</style></head><body>
+<h1>市場與總經儀表板</h1><div class="sub" id="st">載入中…</div>
+<div class="tabs"><button id="t1" class="on">市場行情</button><button id="t2">美國總經</button></div>
+<section id="p1"></section><section id="p2" class="hide"></section>
+<div class="note">報價來源為 Yahoo 公開報價，可能有延遲，美股指數收盤後顯示收盤價；總經與殖利率來自 FRED。升息機率尚未接入。僅供參考，不構成投資建議。</div>
+<script>
+const G=[["大宗商品",[["原油價格 (Brent)","BZ=F"],["黃金價格","GC=F"]]],
+["美股四大指數",[["道瓊","^DJI"],["S&P 500","^GSPC"],["那斯達克","^IXIC"],["費城半導體","^SOX"]]],
+["台股與加密貨幣",[["台灣加權指數","^TWII"],["BTC","BTC-USD"],["ETH","ETH-USD"]]]];
+const f=(n,d=2)=>n==null?"—":n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const row=(l,v,s,c)=>`<div class="row"><span>${l}</span><div><b class="${c||""}">${v}</b><small>${s||""}</small></div></div>`;
+let Q={},F={};
+function r1(){
+  let h=G.map(([t,a])=>`<h2>${t}</h2><div class="box">`+a.map(([l,s])=>{
+    const q=Q[s]; if(!q)return row(l,"—","無資料","na");
+    const ch=(q.price/q.prev-1)*100,c=ch>=0?"up":"dn";
+    return row(l,f(q.price),(ch>=0?"+":"")+f(ch)+"%",c)}).join("")+"</div>").join("");
+  const y=[["美債 1 年期","y1"],["美債 10 年期","y10"],["美債 30 年期","y30"]];
+  h+=`<h2>美債殖利率（FRED 日資料）</h2><div class="box">`+y.map(([l,k])=>{const a=F[k];
+    return a&&a[0]?row(l,f(a[0].v)+"%",a[0].d+(a[1]?"　前日 "+f(a[1].v)+"%":"")):row(l,"—","無資料","na")}).join("")+"</div>";
+  document.getElementById("p1").innerHTML=h}
+const yoy=a=>a&&a.length>12?(a[0].v/a[12].v-1)*100:null;
+function spark(a){if(!a)return"";const p=a.slice(0,12).reverse(),v=p.map(x=>x.v),mn=Math.min(...v)-.1,mx=Math.max(...v)+.1;
+  const pt=p.map((x,i)=>(8+i*284/(p.length-1))+","+(62-(x.v-mn)/(mx-mn)*54)).join(" ");
+  return `<svg viewBox="0 0 300 70" preserveAspectRatio="none"><polyline fill="none" stroke="var(--ac)" stroke-width="2" points="${pt}"/></svg>`}
+const R={cpi:"2026-11-12T13:30:00Z",ppi:"2026-11-13T13:30:00Z",jobs:"2026-11-06T13:30:00Z"};
+function cd(k){const ms=new Date(R[k])-Date.now();if(ms<=0)return"待更新";return`下次公布（預估）${Math.floor(ms/864e5)}天${Math.floor(ms%864e5/36e5)}時`}
+function r2(){
+  const c=yoy(F.cpi),p=yoy(F.ppi),u=F.unrate,n=F.unemp;
+  document.getElementById("p2").innerHTML=`<h2>通膨與就業（FRED）</h2><div class="box">`+
+  row("CPI 年增率",c==null?"—":f(c)+"%",F.cpi?F.cpi[0].d.slice(0,7)+"　"+cd("cpi"):"")+
+  row("PPI（最終需求）年增率",p==null?"—":f(p)+"%",F.ppi?F.ppi[0].d.slice(0,7)+"　"+cd("ppi"):"")+
+  row("失業率",u?f(u[0].v,1)+"%":"—",u?u[0].d.slice(0,7)+"　"+cd("jobs"):"")+
+  row("失業人口",n?f(n[0].v/1000)+" 百萬":"—",n?n[0].d.slice(0,7):"")+"</div>"+
+  `<h2>失業率走勢（近 12 個月）</h2><div class="box" style="padding:8px">${spark(u)}</div>`+
+  `<h2>聯準會升息機率</h2><div class="box">${row("升息機率","—","尚未接入")}</div>`}
+async function q(){try{Q=await(await fetch("/api/quotes")).json();r1();document.getElementById("st").textContent="報價更新："+new Date().toLocaleTimeString("zh-TW")}catch(e){document.getElementById("st").textContent="報價載入失敗"}}
+async function fr(){try{F=await(await fetch("/api/fred")).json();r1();r2()}catch(e){}}
+q();fr();setInterval(q,15000);setInterval(fr,600000);
+const s=a=>{p1.classList.toggle("hide",a!=1);p2.classList.toggle("hide",a!=2);t1.classList.toggle("on",a==1);t2.classList.toggle("on",a==2)};
+t1.onclick=()=>s(1);t2.onclick=()=>s(2);
+</script></body></html>
